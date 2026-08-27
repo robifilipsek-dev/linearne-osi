@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="sl" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kalkulator Linearnih Osi & Servomotorjev</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              orange: '#f97316',
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+              red: '#ef4444'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Modern Clean Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      letter-spacing: -0.011em;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    sub {
+      bottom: -0.2em;
+      font-size: 75%;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen p-4 md:p-8 antialiased">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between border-b border-zinc-800/80 pb-5 gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="p-3 bg-orange-500/10 text-orange-500 rounded-xl border border-orange-500/20">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-extrabold tracking-tight text-white">Dimenzioniranje Linearnih Osi & Servomotorjev</h1>
+            <span class="px-2.5 py-0.5 text-[11px] font-mono-num bg-orange-500/10 text-orange-400 border border-orange-500/25 rounded-md font-semibold">Inženirski Modul</span>
+          </div>
+          <p class="text-xs text-zinc-400 mt-1 font-normal">Izračun kinematike, navorov in preslikane vztrajnosti tovora po pogonskih tipih</p>
+        </div>
+      </div>
+      
+      <!-- Preset Quick Load Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-zinc-400 font-medium mr-1">Hitri primeri:</span>
+        <button onclick="applyPreset('screw_heavy')" class="px-3 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 rounded-lg border border-zinc-800 transition shadow-sm">
+          Težko Vreteno (80 kg)
+        </button>
+        <button onclick="applyPreset('belt_fast')" class="px-3 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 rounded-lg border border-zinc-800 transition shadow-sm">
+          Hitri Jermen (15 kg)
+        </button>
+        <button onclick="applyPreset('screw_precision')" class="px-3 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 rounded-lg border border-zinc-800 transition shadow-sm">
+          Precizna Os (30 kg)
+        </button>
+      </div>
+    </header>
+
+    <!-- KPI DASHBOARD CARDS -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- KPI 1: Required Speed n -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
+        <div class="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Potrebni vrtljaji (n)</div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-n-rpm" class="text-3xl font-bold font-mono-num text-cyan-400">0</span>
+          <span class="text-zinc-400 font-semibold text-sm">obr/min</span>
+        </div>
+        <div class="text-xs text-zinc-400 mt-2 pt-2 border-t border-zinc-800/60 flex justify-between">
+          <span>Hitrost: <strong id="kpi-v-val" class="text-zinc-200 font-mono-num">0.00</strong> m/s</span>
+          <span>Kotna h.: <strong id="kpi-omega-val" class="text-zinc-200 font-mono-num">0.0</strong> rad/s</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Acceleration & Motion Torque -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
+        <div class="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Navor pri pospeševanju (M<sub>pospešek</sub>)</div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-m-acc" class="text-3xl font-bold font-mono-num text-orange-400">0.00</span>
+          <span class="text-zinc-400 font-semibold text-sm">Nm</span>
+        </div>
+        <div class="text-xs text-zinc-400 mt-2 pt-2 border-t border-zinc-800/60">
+          Stacionarni navor (M<sub>potovanje</sub>): <strong id="kpi-m-const" class="text-zinc-200 font-mono-num">0.00</strong> Nm
+        </div>
+      </div>
+
+      <!-- KPI 3: Reflected Inertia J_load -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
+        <div class="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Vztrajnost na osi motorja (J<sub>tovora</sub>)</div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-j-load" class="text-3xl font-bold font-mono-num text-purple-400">0.00</span>
+          <span class="text-zinc-400 font-semibold text-sm">kg·cm²</span>
+        </div>
+        <div class="text-xs text-zinc-400 mt-2 pt-2 border-t border-zinc-800/60">
+          Rotor motorja (J<sub>motor</sub>): <strong id="kpi-j-motor-disp" class="text-zinc-200 font-mono-num">0.00</strong> kg·cm²
+        </div>
+      </div>
+
+      <!-- KPI 4: Inertia Ratio & Dynamic Status -->
+      <div id="kpi-ratio-card" class="bg-zinc-900 border border-emerald-500/30 rounded-xl p-5 shadow-lg relative overflow-hidden">
+        <div id="kpi-ratio-bar" class="absolute top-0 right-0 w-1.5 h-full bg-emerald-500"></div>
+        <div class="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Razmerje vztrajnosti (J<sub>tovora</sub> / J<sub>motor</sub>)</div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-ratio-val" class="text-4xl font-extrabold font-mono-num text-emerald-400">0.0 : 1</span>
+        </div>
+        <div class="text-xs text-zinc-400 mt-2 flex justify-between pt-2 border-t border-zinc-800/60">
+          <span id="kpi-ratio-status" class="font-semibold text-emerald-400">Odlično razmerje</span>
+          <span class="text-zinc-500 font-mono-num">Cilj &lt; 5:1</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- MAIN CALCULATOR GRID -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- LEFT COLUMN: INPUTS (6 cols) -->
+      <div class="lg:col-span-6 space-y-5">
+        
+        <!-- Section 1: Motion Parameters -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg space-y-4">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-orange-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            1. Splošni parametri gibanja
+          </h2>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Masa tovora m [kg]</label>
+              <input type="number" id="input-m" value="50" min="0.1" max="5000" step="0.5" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-orange-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Želena hitrost v [m/s]</label>
+              <input type="number" id="input-v" value="0.5" min="0.01" max="10" step="0.05" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-orange-500">
+            </div>
+          </div>
+
+          <!-- Acceleration Mode Switcher -->
+          <div class="pt-2 border-t border-zinc-800/80">
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-medium text-zinc-300">Način pospeševanja</label>
+              <div class="flex bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[11px]">
+                <button type="button" id="btn-acc-mode-a" onclick="setAccMode('a')" class="px-2.5 py-1 rounded-md font-semibold bg-zinc-800 text-white transition">Pospešek a [m/s²]</button>
+                <button type="button" id="btn-acc-mode-t" onclick="setAccMode('t')" class="px-2.5 py-1 rounded-md text-zinc-400 hover:text-white transition">Čas t<sub>a</sub> [s]</button>
+              </div>
+            </div>
+            
+            <div id="container-acc-a">
+              <input type="number" id="input-a" value="2.5" min="0.1" max="100" step="0.1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-orange-500">
+            </div>
+            <div id="container-acc-t" class="hidden">
+              <input type="number" id="input-ta" value="0.2" min="0.01" max="10" step="0.01" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-orange-500">
+            </div>
+          </div>
+
+          <!-- Friction Mode Switcher -->
+          <div class="pt-2 border-t border-zinc-800/80">
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-medium text-zinc-300">Vnos trenja vodil</label>
+              <div class="flex bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[11px]">
+                <button type="button" id="btn-fric-mode-mu" onclick="setFricMode('mu')" class="px-2.5 py-1 rounded-md font-semibold bg-zinc-800 text-white transition">Koeficient µ</button>
+                <button type="button" id="btn-fric-mode-ff" onclick="setFricMode('ff')" class="px-2.5 py-1 rounded-md text-zinc-400 hover:text-white transition">Fiksna sila F<sub>f</sub> [N]</button>
+              </div>
+            </div>
+            
+            <div id="container-fric-mu">
+              <input type="number" id="input-mu" value="0.05" min="0.001" max="0.5" step="0.005" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-orange-500">
+            </div>
+            <div id="container-fric-ff" class="hidden">
+              <input type="number" id="input-ff" value="25" min="0" max="5000" step="1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-orange-500">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Section 2: Drive Type & Kinematics -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg space-y-4">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+            2. Tip pogona
+          </h2>
+
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Izberi mehanski pogon</label>
+            <select id="select-drive-type" onchange="switchDriveType()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+              <option value="screw" selected>Kroglično vreteno (Ball Screw)</option>
+              <option value="belt">Zobati jermen (Timing Belt)</option>
+            </select>
+          </div>
+
+          <!-- Ball Screw Fields -->
+          <div id="drive-screw-params" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Korak vretena p [mm/obrat]</label>
+              <input type="number" id="input-screw-pitch" value="10" min="1" max="100" step="1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-cyan-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Izkoristek η [%]</label>
+              <input type="number" id="input-screw-eta" value="90" min="10" max="100" step="1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-cyan-500">
+            </div>
+          </div>
+
+          <!-- Belt Fields -->
+          <div id="drive-belt-params" class="grid grid-cols-2 gap-3 hidden">
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Premer jermenice D<sub>p</sub> [mm]</label>
+              <input type="number" id="input-belt-dp" value="48" min="5" max="500" step="1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-cyan-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Izkoristek η [%]</label>
+              <input type="number" id="input-belt-eta" value="85" min="10" max="100" step="1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-cyan-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Motor Parameters -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg space-y-4">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+            3. Podatki predvidenega motorja
+          </h2>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Vztrajnost rotorja J<sub>motor</sub></label>
+              <input type="number" id="input-j-motor" value="1.5" min="0.0001" max="1000" step="0.1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-purple-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Enota vztrajnosti</label>
+              <select id="select-j-unit" onchange="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-mono-num">
+                <option value="kgcm2" selected>kg·cm²</option>
+                <option value="kgm2">kg·m²</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: BREAKDOWN & EVALUATION (6 cols) -->
+      <div class="lg:col-span-6 space-y-5">
+        
+        <!-- WARNING & SUITABILITY CARD -->
+        <div id="eval-card" class="bg-zinc-900 border border-emerald-500/40 rounded-xl p-5 shadow-lg space-y-3">
+          <div class="flex items-center gap-3">
+            <div id="eval-icon-bg" class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+              <svg id="eval-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <h3 id="eval-title" class="text-sm font-bold text-white">Sistem je odziven in stabilen</h3>
+              <p id="eval-subtitle" class="text-xs text-zinc-400">Razmerje vztrajnosti je znotraj priporočenih meja (&lt; 5:1).</p>
+            </div>
+          </div>
+          <p id="eval-desc" class="text-xs text-zinc-300 leading-relaxed pt-2 border-t border-zinc-800">
+            Preslikana vztrajnost tovora je majhna v primerjavi z rotorjem motorja. Krmilnik pozicije bo stabilen brez nevarnosti nihanja ali vibracij pri visokih dinamičnih pospeških.
+          </p>
+        </div>
+
+        <!-- MATHEMATICAL BREAKDOWN DETAILS -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg space-y-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            Podrobna razčlenitev sil in navorov
+          </h2>
+
+          <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 space-y-2 text-xs font-mono-num text-zinc-300">
+            <div class="flex justify-between border-b border-zinc-800/80 pb-1.5">
+              <span class="text-zinc-400 font-sans">Sila trenja vodil (F<sub>f</sub>):</span>
+              <span id="det-f-fric" class="text-zinc-100 font-bold">24.53 N</span>
+            </div>
+            <div class="flex justify-between border-b border-zinc-800/80 pb-1.5">
+              <span class="text-zinc-400 font-sans">Dinamična sila pospeševanja (F<sub>a</sub>):</span>
+              <span id="det-f-acc" class="text-zinc-100 font-bold">125.00 N</span>
+            </div>
+            <div class="flex justify-between border-b border-zinc-800/80 pb-1.5">
+              <span class="text-zinc-400 font-sans">Skupna sila pri pospeševanju (F<sub>skupaj</sub>):</span>
+              <span id="det-f-total" class="text-orange-400 font-bold">149.53 N</span>
+            </div>
+            <div class="flex justify-between border-b border-zinc-800/80 pb-1.5">
+              <span class="text-zinc-400 font-sans">Navor za premagovanje lin. sil (M<sub>tovora</sub>):</span>
+              <span id="det-m-load" class="text-zinc-100 font-bold">0.26 Nm</span>
+            </div>
+            <div class="flex justify-between border-b border-zinc-800/80 pb-1.5">
+              <span class="text-zinc-400 font-sans">Navor za pospešek rotorja (M<sub>rotor</sub>):</span>
+              <span id="det-m-rotor" class="text-purple-400 font-bold">0.04 Nm</span>
+            </div>
+            <div class="flex justify-between pt-1 font-sans">
+              <span class="text-zinc-400 font-medium">Skupni navor pospeška (M<sub>pospešek</sub>):</span>
+              <span id="det-m-acc-total" class="text-orange-400 font-bold font-mono-num">0.30 Nm</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TECHNICAL REPORT SUMMARY BOX -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              Tehnični povzetek specifikacije
+            </h2>
+            <div class="flex items-center gap-2">
+              <button onclick="copyReport()" class="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-xs font-semibold transition flex items-center gap-1 shadow-sm">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>Kopiraj</span>
+              </button>
+            </div>
+          </div>
+
+          <textarea id="report-text" readonly class="w-full h-40 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-mono-num text-zinc-300 focus:outline-none resize-none leading-relaxed"></textarea>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-orange-600 text-white px-4 py-2.5 rounded-lg shadow-xl text-xs font-semibold translate-y-20 opacity-0 transition-all duration-300">
+    Besedilo kopirano v odložišče!
+  </div>
+
+  <script>
+    let accMode = 'a'; // 'a' or 't'
+    let fricMode = 'mu'; // 'mu' or 'ff'
+
+    function setAccMode(mode) {
+      accMode = mode;
+      const btnA = document.getElementById('btn-acc-mode-a');
+      const btnT = document.getElementById('btn-acc-mode-t');
+      const boxA = document.getElementById('container-acc-a');
+      const boxT = document.getElementById('container-acc-t');
+
+      if (mode === 'a') {
+        btnA.className = 'px-2.5 py-1 rounded-md font-semibold bg-zinc-800 text-white transition';
+        btnT.className = 'px-2.5 py-1 rounded-md text-zinc-400 hover:text-white transition';
+        boxA.classList.remove('hidden');
+        boxT.classList.add('hidden');
+      } else {
+        btnT.className = 'px-2.5 py-1 rounded-md font-semibold bg-zinc-800 text-white transition';
+        btnA.className = 'px-2.5 py-1 rounded-md text-zinc-400 hover:text-white transition';
+        boxT.classList.remove('hidden');
+        boxA.classList.add('hidden');
+      }
+      calculate();
+    }
+
+    function setFricMode(mode) {
+      fricMode = mode;
+      const btnMu = document.getElementById('btn-fric-mode-mu');
+      const btnFf = document.getElementById('btn-fric-mode-ff');
+      const boxMu = document.getElementById('container-fric-mu');
+      const boxFf = document.getElementById('container-fric-ff');
+
+      if (mode === 'mu') {
+        btnMu.className = 'px-2.5 py-1 rounded-md font-semibold bg-zinc-800 text-white transition';
+        btnFf.className = 'px-2.5 py-1 rounded-md text-zinc-400 hover:text-white transition';
+        boxMu.classList.remove('hidden');
+        boxFf.classList.add('hidden');
+      } else {
+        btnFf.className = 'px-2.5 py-1 rounded-md font-semibold bg-zinc-800 text-white transition';
+        btnMu.className = 'px-2.5 py-1 rounded-md text-zinc-400 hover:text-white transition';
+        boxFf.classList.remove('hidden');
+        boxMu.classList.add('hidden');
+      }
+      calculate();
+    }
+
+    function switchDriveType() {
+      const driveType = document.getElementById('select-drive-type').value;
+      const screwBox = document.getElementById('drive-screw-params');
+      const beltBox = document.getElementById('drive-belt-params');
+
+      if (driveType === 'screw') {
+        screwBox.classList.remove('hidden');
+        beltBox.classList.add('hidden');
+      } else {
+        screwBox.classList.add('hidden');
+        beltBox.classList.remove('hidden');
+      }
+      calculate();
+    }
+
+    function calculate() {
+      // 1. Motion Inputs
+      const m = parseFloat(document.getElementById('input-m').value) || 0;
+      const v = parseFloat(document.getElementById('input-v').value) || 0;
+      
+      let a = 0;
+      let ta = 0;
+      if (accMode === 'a') {
+        a = parseFloat(document.getElementById('input-a').value) || 0;
+        ta = v > 0 && a > 0 ? v / a : 0;
+      } else {
+        ta = parseFloat(document.getElementById('input-ta').value) || 0.001;
+        a = v > 0 && ta > 0 ? v / ta : 0;
+      }
+
+      let F_fric = 0;
+      if (fricMode === 'mu') {
+        const mu = parseFloat(document.getElementById('input-mu').value) || 0;
+        F_fric = m * 9.81 * mu;
+      } else {
+        F_fric = parseFloat(document.getElementById('input-ff').value) || 0;
+      }
+
+      const F_acc_dyn = m * a;
+      const F_total_acc = F_acc_dyn + F_fric;
+      const F_const = F_fric;
+
+      // 2. Drive Selection & Kinematics
+      const driveType = document.getElementById('select-drive-type').value;
+      let n_rpm = 0;
+      let s_rev = 0; // linear travel per motor rev [m/rev]
+      let eta = 0.9;
+      let driveName = "";
+
+      if (driveType === 'screw') {
+        const pitch_mm = parseFloat(document.getElementById('input-screw-pitch').value) || 10;
+        eta = (parseFloat(document.getElementById('input-screw-eta').value) || 90) / 100.0;
+        s_rev = pitch_mm / 1000.0; // mm to m
+        n_rpm = (v / s_rev) * 60.0;
+        driveName = `Kroglično vreteno (p = ${pitch_mm} mm)`;
+      } else {
+        const dp_mm = parseFloat(document.getElementById('input-belt-dp').value) || 50;
+        eta = (parseFloat(document.getElementById('input-belt-eta').value) || 85) / 100.0;
+        s_rev = (Math.PI * dp_mm) / 1000.0; // mm to m
+        n_rpm = (v / s_rev) * 60.0;
+        driveName = `Zobati jermen (Dp = ${dp_mm} mm)`;
+      }
+
+      const omega = (2 * Math.PI * n_rpm) / 60.0; // rad/s
+      const alpha = a > 0 ? (2 * Math.PI * a) / s_rev : 0; // rad/s² angular acceleration
+
+      // 3. Load Inertia Reflected to Motor Shaft
+      // J_reflected = m * (s_rev / 2PI)^2  [kg*m²]
+      const J_load_kgm2 = m * Math.pow(s_rev / (2 * Math.PI), 2);
+      const J_load_kgcm2 = J_load_kgm2 * 10000.0;
+
+      // 4. Motor Inertia Input
+      const jMotorRaw = parseFloat(document.getElementById('input-j-motor').value) || 0.0001;
+      const jUnit = document.getElementById('select-j-unit').value;
+      let J_motor_kgcm2 = 0;
+      let J_motor_kgm2 = 0;
+
+      if (jUnit === 'kgcm2') {
+        J_motor_kgcm2 = jMotorRaw;
+        J_motor_kgm2 = jMotorRaw / 10000.0;
+      } else {
+        J_motor_kgm2 = jMotorRaw;
+        J_motor_kgcm2 = jMotorRaw * 10000.0;
+      }
+
+      // 5. Torques Calculation
+      // M_const = (F_const * s_rev) / (2 * PI * eta)
+      const M_const = (F_const * s_rev) / (2 * Math.PI * eta);
+      
+      // Load Torque during acceleration
+      const M_load_acc = (F_total_acc * s_rev) / (2 * Math.PI * eta);
+      
+      // Rotor acceleration torque = J_motor * alpha
+      const M_rotor_acc = J_motor_kgm2 * alpha;
+
+      // Total Acceleration Torque
+      const M_acc_total = M_load_acc + M_rotor_acc;
+
+      // 6. Ratio & Evaluation
+      const ratio = J_motor_kgcm2 > 0 ? J_load_kgcm2 / J_motor_kgcm2 : 0;
+
+      // UPDATE UI - KPIs
+      document.getElementById('kpi-n-rpm').textContent = Math.round(n_rpm);
+      document.getElementById('kpi-v-val').textContent = v.toFixed(2);
+      document.getElementById('kpi-omega-val').textContent = omega.toFixed(1);
+      
+      document.getElementById('kpi-m-acc').textContent = M_acc_total.toFixed(2);
+      document.getElementById('kpi-m-const').textContent = M_const.toFixed(2);
+      
+      document.getElementById('kpi-j-load').textContent = J_load_kgcm2 < 10 ? J_load_kgcm2.toFixed(3) : J_load_kgcm2.toFixed(1);
+      document.getElementById('kpi-j-motor-disp').textContent = J_motor_kgcm2.toFixed(2);
+
+      document.getElementById('kpi-ratio-val').textContent = `${ratio.toFixed(1)} : 1`;
+
+      // UPDATE UI - DETAILS
+      document.getElementById('det-f-fric').textContent = `${F_fric.toFixed(2)} N`;
+      document.getElementById('det-f-acc').textContent = `${F_acc_dyn.toFixed(2)} N`;
+      document.getElementById('det-f-total').textContent = `${F_total_acc.toFixed(2)} N`;
+      document.getElementById('det-m-load').textContent = `${M_load_acc.toFixed(2)} Nm`;
+      document.getElementById('det-m-rotor').textContent = `${M_rotor_acc.toFixed(2)} Nm`;
+      document.getElementById('det-m-acc-total').textContent = `${M_acc_total.toFixed(2)} Nm`;
+
+      // EVALUATION CARD & COLORS
+      const card = document.getElementById('eval-card');
+      const ratioCard = document.getElementById('kpi-ratio-card');
+      const ratioBar = document.getElementById('kpi-ratio-bar');
+      const ratioValText = document.getElementById('kpi-ratio-val');
+      const ratioStatusText = document.getElementById('kpi-ratio-status');
+
+      const iconBg = document.getElementById('eval-icon-bg');
+      const title = document.getElementById('eval-title');
+      const subtitle = document.getElementById('eval-subtitle');
+      const desc = document.getElementById('eval-desc');
+
+      if (ratio < 5.0) {
+        // GREEN - OPTIMAL
+        ratioCard.className = "bg-zinc-900 border border-emerald-500/30 rounded-xl p-5 shadow-lg relative overflow-hidden";
+        ratioBar.className = "absolute top-0 right-0 w-1.5 h-full bg-emerald-500";
+        ratioValText.className = "text-4xl font-extrabold font-mono-num text-emerald-400";
+        ratioStatusText.className = "font-semibold text-emerald-400";
+        ratioStatusText.textContent = "Zelena cona (< 5:1)";
+
+        card.className = "bg-zinc-900 border border-emerald-500/40 rounded-xl p-5 shadow-lg space-y-3";
+        iconBg.className = "p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg";
+        title.textContent = "Sistem je izjemno stabilen in odziven";
+        subtitle.textContent = `Razmerje vztrajnosti ${ratio.toFixed(1)}:1 je znotraj optimalnih meja (< 5:1).`;
+        desc.textContent = "Preslikana vztrajnost tovora ne bo povzročala nikakršnih težav pri regulaciji hitrosti in pozicioniranja. Krmilnik servomotorja bo lahko deloval z visokimi ojačitvami (gaini).";
+      } else if (ratio >= 5.0 && ratio <= 10.0) {
+        // YELLOW - ACCEPTABLE / CAUTION
+        ratioCard.className = "bg-zinc-900 border border-amber-500/30 rounded-xl p-5 shadow-lg relative overflow-hidden";
+        ratioBar.className = "absolute top-0 right-0 w-1.5 h-full bg-amber-500";
+        ratioValText.className = "text-4xl font-extrabold font-mono-num text-amber-400";
+        ratioStatusText.className = "font-semibold text-amber-400";
+        ratioStatusText.textContent = "Rumena cona (5:1 - 10:1)";
+
+        card.className = "bg-zinc-900 border border-amber-500/40 rounded-xl p-5 shadow-lg space-y-3";
+        iconBg.className = "p-2.5 bg-amber-500/10 text-amber-400 rounded-lg";
+        title.textContent = "Ustreza za manj dinamične sisteme";
+        subtitle.textContent = `Razmerje vztrajnosti ${ratio.toFixed(1)}:1 zahteva previdno nastavitev PID krmilnika.`;
+        desc.textContent = "Sistem je sprejemljiv za standardne industrijske osi. Priporočljivo je mehko pospeševanje ali uporaba servomotorja z večjim rotorjem za izboljšanje dinamičnega odziva.";
+      } else {
+        // RED - DANGER / OSCILLATION
+        ratioCard.className = "bg-zinc-900 border border-red-500/40 rounded-xl p-5 shadow-lg relative overflow-hidden";
+        ratioBar.className = "absolute top-0 right-0 w-1.5 h-full bg-red-500";
+        ratioValText.className = "text-4xl font-extrabold font-mono-num text-red-400";
+        ratioStatusText.className = "font-semibold text-red-400";
+        ratioStatusText.textContent = "Rdeče opozorilo (> 10:1)";
+
+        card.className = "bg-zinc-900 border border-red-500/40 rounded-xl p-5 shadow-lg space-y-3";
+        iconBg.className = "p-2.5 bg-red-500/10 text-red-400 rounded-lg";
+        title.textContent = "OPOZORILO: Previsoko razmerje vztrajnosti!";
+        subtitle.textContent = `Razmerje vztrajnosti ${ratio.toFixed(1)}:1 presega priporočeno mejo 10:1.`;
+        desc.textContent = "NEVARNOST NIHANJA SISTEMA! Tovor je močno pretežak glede na rotor motorja. Uporabite planetarni reduktor, zmanjšajte korak/premer pogona ali izberite motor z večjim vztrajnostnim momentom.";
+      }
+
+      updateReport(m, v, a, ta, F_fric, driveName, eta, n_rpm, M_const, M_acc_total, J_load_kgcm2, J_motor_kgcm2, ratio);
+    }
+
+    function applyPreset(type) {
+      if (type === 'screw_heavy') {
+        document.getElementById('input-m').value = "80";
+        document.getElementById('input-v').value = "0.4";
+        setAccMode('a');
+        document.getElementById('input-a').value = "2.0";
+        setFricMode('mu');
+        document.getElementById('input-mu').value = "0.05";
+        document.getElementById('select-drive-type').value = "screw";
+        switchDriveType();
+        document.getElementById('input-screw-pitch').value = "10";
+        document.getElementById('input-screw-eta').value = "90";
+        document.getElementById('input-j-motor').value = "2.5";
+        document.getElementById('select-j-unit').value = "kgcm2";
+      } else if (type === 'belt_fast') {
+        document.getElementById('input-m').value = "15";
+        document.getElementById('input-v').value = "1.5";
+        setAccMode('a');
+        document.getElementById('input-a').value = "5.0";
+        setFricMode('mu');
+        document.getElementById('input-mu').value = "0.04";
+        document.getElementById('select-drive-type').value = "belt";
+        switchDriveType();
+        document.getElementById('input-belt-dp').value = "48";
+        document.getElementById('input-belt-eta').value = "85";
+        document.getElementById('input-j-motor').value = "1.2";
+        document.getElementById('select-j-unit').value = "kgcm2";
+      } else if (type === 'screw_precision') {
+        document.getElementById('input-m').value = "30";
+        document.getElementById('input-v').value = "0.2";
+        setAccMode('t');
+        document.getElementById('input-ta').value = "0.1";
+        setFricMode('mu');
+        document.getElementById('input-mu').value = "0.03";
+        document.getElementById('select-drive-type').value = "screw";
+        switchDriveType();
+        document.getElementById('input-screw-pitch').value = "5";
+        document.getElementById('input-screw-eta').value = "92";
+        document.getElementById('input-j-motor').value = "0.8";
+        document.getElementById('select-j-unit').value = "kgcm2";
+      }
+      calculate();
+    }
+
+    function updateReport(m, v, a, ta, F_fric, driveName, eta, n_rpm, M_const, M_acc, J_load, J_motor, ratio) {
+      const areaText = document.getElementById('report-text');
+      let txt = `==================================================\n`;
+      txt += ` SPECIFIKACIJA LINEARNE OSI IN SERVOMOTORJA\n`;
+      txt += `==================================================\n`;
+      txt += `• Masa tovora (m)           : ${m} kg\n`;
+      txt += `• Max hitrost (v)           : ${v} m/s\n`;
+      txt += `• Pospešek (a) / Čas (ta)   : ${a.toFixed(2)} m/s² (ta = ${ta.toFixed(3)} s)\n`;
+      txt += `• Sila trenja (F_fric)      : ${F_fric.toFixed(1)} N\n`;
+      txt += `--------------------------------------------------\n`;
+      txt += `POGON IN KINEMATIKA:\n`;
+      txt += `• Tip pogona                : ${driveName}\n`;
+      txt += `• Potrebni obrati motorja  : ${Math.round(n_rpm)} obr/min\n`;
+      txt += `• Stacionarni navor (M_cont): ${M_const.toFixed(2)} Nm\n`;
+      txt += `• Pospeševalni navor (M_acc): ${M_acc.toFixed(2)} Nm\n`;
+      txt += `--------------------------------------------------\n`;
+      txt += `ANALIZA VZTRAJNOSTNIH MOMENTOV:\n`;
+      txt += `• Vztrajnost tovora (J_load): ${J_load.toFixed(2)} kg·cm²\n`;
+      txt += `• Rotor motorja (J_motor)   : ${J_motor.toFixed(2)} kg·cm²\n`;
+      txt += `• RAZMERJE VZTRAJNOSTI      : ${ratio.toFixed(1)} : 1 `;
+      
+      if (ratio < 5) txt += `(OPTIMALNO < 5:1)\n`;
+      else if (ratio <= 10) txt += `(SPREJEMLJIVO 5-10:1)\n`;
+      else txt += `(KRITIČNO OPOZORILO > 10:1)\n`;
+
+      txt += `==================================================`;
+
+      areaText.value = txt;
+    }
+
+    function copyReport() {
+      const reportArea = document.getElementById('report-text');
+      reportArea.select();
+      navigator.clipboard.writeText(reportArea.value);
+
+      const toast = document.getElementById('toast');
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2000);
+    }
+
+    // Initial Trigger
+    calculate();
+  </script>
+</body>
+</html>
