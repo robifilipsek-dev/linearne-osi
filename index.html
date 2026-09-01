@@ -54,8 +54,7 @@
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-2xl font-extrabold tracking-tight text-white">Dimenzioniranje Linearnih Osi & Servomotorjev</h1>
-            <span class="px-2.5 py-0.5 text-[11px] font-mono-num bg-orange-500/10 text-orange-400 border border-orange-500/25 rounded-md font-semibold">Inženirski Modul</span>
+            <h1 class="text-2xl font-extrabold tracking-tight text-white">Dimenzioniranje linearnih osi in servomotorjev</h1>
           </div>
           <p class="text-xs text-zinc-400 mt-1 font-normal">Izračun kinematike, navorov in preslikane vztrajnosti tovora po pogonskih tipih</p>
         </div>
@@ -212,7 +211,7 @@
           <div id="drive-screw-params" class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-zinc-300 mb-1">Korak vretena p [mm/obrat]</label>
-              <input type="number" id="input-screw-pitch" value="10" min="1" max="100" step="1" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-cyan-500">
+              <input type="number" id="input-screw-pitch" value="10" min="0.1" max="100" step="0.5" oninput="calculate()" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono-num text-white focus:outline-none focus:border-cyan-500">
             </div>
             <div>
               <label class="block text-xs font-medium text-zinc-300 mb-1">Izkoristek η [%]</label>
@@ -431,20 +430,20 @@
       // 2. Drive Selection & Kinematics
       const driveType = document.getElementById('select-drive-type').value;
       let n_rpm = 0;
-      let s_rev = 0; // linear travel per motor rev [m/rev]
+      let s_rev = 0.01; // default fallback [m/rev]
       let eta = 0.9;
       let driveName = "";
 
       if (driveType === 'screw') {
         const pitch_mm = parseFloat(document.getElementById('input-screw-pitch').value) || 10;
-        eta = (parseFloat(document.getElementById('input-screw-eta').value) || 90) / 100.0;
-        s_rev = pitch_mm / 1000.0; // mm to m
+        eta = Math.max(0.1, Math.min(1.0, (parseFloat(document.getElementById('input-screw-eta').value) || 90) / 100.0));
+        s_rev = Math.max(0.0001, pitch_mm / 1000.0); // mm to m
         n_rpm = (v / s_rev) * 60.0;
         driveName = `Kroglično vreteno (p = ${pitch_mm} mm)`;
       } else {
         const dp_mm = parseFloat(document.getElementById('input-belt-dp').value) || 50;
-        eta = (parseFloat(document.getElementById('input-belt-eta').value) || 85) / 100.0;
-        s_rev = (Math.PI * dp_mm) / 1000.0; // mm to m
+        eta = Math.max(0.1, Math.min(1.0, (parseFloat(document.getElementById('input-belt-eta').value) || 85) / 100.0));
+        s_rev = Math.max(0.0001, (Math.PI * dp_mm) / 1000.0); // mm to m
         n_rpm = (v / s_rev) * 60.0;
         driveName = `Zobati jermen (Dp = ${dp_mm} mm)`;
       }
@@ -453,7 +452,6 @@
       const alpha = a > 0 ? (2 * Math.PI * a) / s_rev : 0; // rad/s² angular acceleration
 
       // 3. Load Inertia Reflected to Motor Shaft
-      // J_reflected = m * (s_rev / 2PI)^2  [kg*m²]
       const J_load_kgm2 = m * Math.pow(s_rev / (2 * Math.PI), 2);
       const J_load_kgcm2 = J_load_kgm2 * 10000.0;
 
@@ -472,16 +470,9 @@
       }
 
       // 5. Torques Calculation
-      // M_const = (F_const * s_rev) / (2 * PI * eta)
       const M_const = (F_const * s_rev) / (2 * Math.PI * eta);
-      
-      // Load Torque during acceleration
       const M_load_acc = (F_total_acc * s_rev) / (2 * Math.PI * eta);
-      
-      // Rotor acceleration torque = J_motor * alpha
       const M_rotor_acc = J_motor_kgm2 * alpha;
-
-      // Total Acceleration Torque
       const M_acc_total = M_load_acc + M_rotor_acc;
 
       // 6. Ratio & Evaluation
@@ -521,7 +512,6 @@
       const desc = document.getElementById('eval-desc');
 
       if (ratio < 5.0) {
-        // GREEN - OPTIMAL
         ratioCard.className = "bg-zinc-900 border border-emerald-500/30 rounded-xl p-5 shadow-lg relative overflow-hidden";
         ratioBar.className = "absolute top-0 right-0 w-1.5 h-full bg-emerald-500";
         ratioValText.className = "text-4xl font-extrabold font-mono-num text-emerald-400";
@@ -532,9 +522,8 @@
         iconBg.className = "p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg";
         title.textContent = "Sistem je izjemno stabilen in odziven";
         subtitle.textContent = `Razmerje vztrajnosti ${ratio.toFixed(1)}:1 je znotraj optimalnih meja (< 5:1).`;
-        desc.textContent = "Preslikana vztrajnost tovora ne bo povzročala nikakršnih težav pri regulaciji hitrosti in pozicioniranja. Krmilnik servomotorja bo lahko deloval z visokimi ojačitvami (gaini).";
+        desc.textContent = "Preslikana vztrajnost tovora ne bo povzročala nikakršnih težav pri regulaciji hitrosti in pozicioniranja. Krmilnik servomotorja bo lahko deloval z visokimi ojačitvami.";
       } else if (ratio >= 5.0 && ratio <= 10.0) {
-        // YELLOW - ACCEPTABLE / CAUTION
         ratioCard.className = "bg-zinc-900 border border-amber-500/30 rounded-xl p-5 shadow-lg relative overflow-hidden";
         ratioBar.className = "absolute top-0 right-0 w-1.5 h-full bg-amber-500";
         ratioValText.className = "text-4xl font-extrabold font-mono-num text-amber-400";
@@ -545,9 +534,8 @@
         iconBg.className = "p-2.5 bg-amber-500/10 text-amber-400 rounded-lg";
         title.textContent = "Ustreza za manj dinamične sisteme";
         subtitle.textContent = `Razmerje vztrajnosti ${ratio.toFixed(1)}:1 zahteva previdno nastavitev PID krmilnika.`;
-        desc.textContent = "Sistem je sprejemljiv za standardne industrijske osi. Priporočljivo je mehko pospeševanje ali uporaba servomotorja z večjim rotorjem za izboljšanje dinamičnega odziva.";
+        desc.textContent = "Sistem je sprejemljiv za standardne industrijske osi. Priporočljivo je mehko pospeševanje ali uporaba servomotorja z večjim rotorjem.";
       } else {
-        // RED - DANGER / OSCILLATION
         ratioCard.className = "bg-zinc-900 border border-red-500/40 rounded-xl p-5 shadow-lg relative overflow-hidden";
         ratioBar.className = "absolute top-0 right-0 w-1.5 h-full bg-red-500";
         ratioValText.className = "text-4xl font-extrabold font-mono-num text-red-400";
@@ -558,7 +546,7 @@
         iconBg.className = "p-2.5 bg-red-500/10 text-red-400 rounded-lg";
         title.textContent = "OPOZORILO: Previsoko razmerje vztrajnosti!";
         subtitle.textContent = `Razmerje vztrajnosti ${ratio.toFixed(1)}:1 presega priporočeno mejo 10:1.`;
-        desc.textContent = "NEVARNOST NIHANJA SISTEMA! Tovor je močno pretežak glede na rotor motorja. Uporabite planetarni reduktor, zmanjšajte korak/premer pogona ali izberite motor z večjim vztrajnostnim momentom.";
+        desc.textContent = "NEVARNOST NIHANJA SISTEMA! Tovor je močno pretežak glede na rotor motorja. Uporabite planetarni reduktor ali izberite motor z večjim vztrajnostnim momentom.";
       }
 
       updateReport(m, v, a, ta, F_fric, driveName, eta, n_rpm, M_const, M_acc_total, J_load_kgcm2, J_motor_kgcm2, ratio);
